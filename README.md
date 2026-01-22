@@ -1,4 +1,4 @@
-# ai-coding-starter
+# AI coding starter
 
 Initialize a project with Claude Code configurations for enterprise-grade AI-assisted development workflows.
 

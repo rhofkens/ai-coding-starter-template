@@ -4,6 +4,31 @@ Audit log of knowledge base updates.
 
 ---
 
+## 2026-02-10
+
+**Session:** Interactive CLI, Specialized Agents, and Design System (v2.0.0)
+**Plan:** `docs/plans/extend-template-agents-and-interactive-cli.md`
+**Session file:** `sessions/2026-02-10-interactive-cli-and-agents.md`
+
+**Added to knowledge.md:**
+
+- Architecture pattern: Separate core from optional template content
+- Architecture pattern: Agent definition structure (frontmatter + input + process + best practices)
+- Pitfall: Optional files in core directories cause "already exists" conflicts
+- Pitfall: ESM `__dirname` equivalent using `fileURLToPath`
+- Workflow tip: ADR upfront for breaking changes
+- Workflow tip: Phased implementation with checkpoints
+- Tool usage: @clack/prompts API overview
+- Tool usage: `npm pack --dry-run` for pre-publish verification
+- Code pattern: CLI colored output v2 with picocolors
+- Code pattern: Create-plan agent integration by specific file path
+
+**Updated in knowledge.md:**
+
+- Zero-dependency CLI tools entry now notes superseding by ADR-002
+
+---
+
 ## 2026-01-19
 
 **Session:** Creating @rhofkens/ai-coding-starter npm Package

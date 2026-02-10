@@ -1,6 +1,7 @@
 {
   "name": "@rhofkens/ai-coding-starter",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "type": "module",
   "description": "Initialize a project with Claude Code configurations for enterprise-grade AI-assisted development workflows",
   "bin": {
     "ai-coding-starter": "./bin/cli.js"
@@ -26,6 +27,9 @@
     "url": "https://github.com/roelandhofkens/ai-coding-starter-template"
   },
   "engines": {
-    "node": ">=16.7.0"
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.0.0"
   }
 }

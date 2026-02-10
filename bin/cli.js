@@ -1,42 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * ai-coding-starter CLI
+ * ai-coding-starter CLI v2.0.0
  * Initializes a project with Claude Code configurations for enterprise-grade AI-assisted development workflows
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  intro, outro, cancel,
+  confirm, isCancel,
+  note, log, spinner,
+} from '@clack/prompts';
+import pc from 'picocolors';
 
-// ANSI color codes for terminal output
-const colors = {
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  red: '\x1b[31m',
-  cyan: '\x1b[36m',
-  reset: '\x1b[0m',
-  bold: '\x1b[1m'
-};
-
-function log(message, color = '') {
-  console.log(`${color}${message}${colors.reset}`);
-}
-
-function logSuccess(message) {
-  log(`✓ ${message}`, colors.green);
-}
-
-function logWarning(message) {
-  log(`⚠ ${message}`, colors.yellow);
-}
-
-function logError(message) {
-  log(`✗ ${message}`, colors.red);
-}
-
-function logInfo(message) {
-  log(`→ ${message}`, colors.cyan);
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Check if a path exists
@@ -70,115 +50,270 @@ function copyDir(src, dest) {
 }
 
 /**
- * Main function
+ * Copy a single item (file or directory) from template to target
+ * Returns true if created, false if skipped
  */
-function main() {
-  // Handle --help flag
-  if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    console.log(`
-${colors.bold}ai-coding-starter${colors.reset}
+function copyItem(templateDir, targetDir, templateSubPath, description) {
+  const srcPath = path.join(templateDir, templateSubPath);
+  const destPath = path.join(targetDir, templateSubPath);
+  const label = description || templateSubPath;
 
-Initialize a project with Claude Code configurations for enterprise-grade AI-assisted development workflows.
+  if (!exists(srcPath)) {
+    log.warn(`Template missing: ${label}`);
+    return false;
+  }
 
-${colors.bold}Usage:${colors.reset}
+  if (exists(destPath)) {
+    log.warn(`Skipped: ${label} (already exists)`);
+    return false;
+  }
+
+  const srcStat = fs.statSync(srcPath);
+  if (srcStat.isDirectory()) {
+    copyDir(srcPath, destPath);
+  } else {
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.copyFileSync(srcPath, destPath);
+  }
+
+  log.success(`Created: ${label}`);
+  return true;
+}
+
+/**
+ * Show help text
+ */
+function showHelp() {
+  console.log(`
+ai-coding-starter v2.0.0
+
+Initialize a project with Claude Code configurations for
+enterprise-grade AI-assisted development workflows.
+
+Usage:
   npx @rhofkens/ai-coding-starter
 
-${colors.bold}What it creates:${colors.reset}
-  .claude/     Commands, agents, and skills for Claude Code
-  docs/        Documentation folder structure
-  CLAUDE.md    Project preferences for Claude
-  LICENSE      MIT License template
+Core components (always installed):
+  .claude/        Commands, skills, and settings for Claude Code
+  docs/           Documentation folder structure
+  CLAUDE.md       Project preferences for Claude
+  LICENSE         MIT License template
 
-${colors.bold}Options:${colors.reset}
-  --help, -h   Show this help message
+Optional components (interactive selection):
+  Frontend Agent  React 19.x / shadcn / Vite best practices agent
+  Backend Agent   Spring Boot 3.5+ / Java 25 best practices agent
+  Design System   shadcn Nova / Indigo default design system
 
-${colors.bold}More info:${colors.reset}
+Options:
+  --help, -h      Show this help message
+
+More info:
   https://github.com/roelandhofkens/ai-coding-starter-template
 `);
+}
+
+/**
+ * Main function
+ */
+async function main() {
+  // Handle --help flag
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    showHelp();
     process.exit(0);
   }
 
   const targetDir = process.cwd();
   const templateDir = path.join(__dirname, '..', 'template');
 
-  log(`\n${colors.bold}ai-coding-starter${colors.reset}`);
-  log('Initializing Claude Code project structure...\n');
-
   // Check if template directory exists
   if (!exists(templateDir)) {
-    logError('Template directory not found. Package may be corrupted.');
+    log.error('Template directory not found. Package may be corrupted.');
     process.exit(1);
   }
 
-  // Track what was created vs skipped
+  intro('AI Coding Starter Template Installer for Claude Code');
+
+  note(
+    [
+      pc.bold(pc.white('By Roeland Hofkens')),
+      '',
+      pc.cyan('https://www.bluefields.ai'),
+      pc.cyan('https://www.linkedin.com/in/roelandhofkens'),
+    ].join('\n'),
+    'About'
+  );
+
+  // --- Core items (always installed) ---
+
+  const s = spinner();
+  s.start('Installing core components...');
+
+  const coreItems = [
+    ['.claude', '.claude/ commands, skills, and settings'],
+    ['docs', 'docs/ folder structure'],
+    ['CLAUDE.md', 'CLAUDE.md project preferences'],
+    ['LICENSE', 'LICENSE file'],
+  ];
+
   const created = [];
   const skipped = [];
 
-  // Items to copy: [templateSubPath, targetSubPath, description]
-  const items = [
-    ['.claude', '.claude', '.claude/ folder with commands, agents, and skills'],
-    ['docs', 'docs', 'docs/ folder structure'],
-    ['CLAUDE.md', 'CLAUDE.md', 'CLAUDE.md project preferences'],
-    ['LICENSE', 'LICENSE', 'LICENSE file']
+  for (const [templateSubPath, description] of coreItems) {
+    const wasCreated = copyItem(templateDir, targetDir, templateSubPath, description);
+    if (wasCreated) {
+      created.push(description);
+    } else {
+      skipped.push(description);
+    }
+  }
+
+  s.stop('Core components installed.');
+
+  // --- Optional components ---
+
+  const addFrontend = await confirm({
+    message: 'Add Frontend Agent (React 19.x / shadcn / Vite)?',
+    active: 'Yes',
+    inactive: 'No',
+    initialValue: true,
+  });
+
+  if (isCancel(addFrontend)) {
+    cancel('Setup cancelled.');
+    process.exit(0);
+  }
+
+  const addBackend = await confirm({
+    message: 'Add Backend Agent (Spring Boot 3.5+ / Java 25)?',
+    active: 'Yes',
+    inactive: 'No',
+    initialValue: true,
+  });
+
+  if (isCancel(addBackend)) {
+    cancel('Setup cancelled.');
+    process.exit(0);
+  }
+
+  let addDesignSystem = false;
+
+  if (addFrontend) {
+    const dsAnswer = await confirm({
+      message: 'Add Default Design System (shadcn Nova / Indigo)?',
+      active: 'Yes',
+      inactive: 'No',
+      initialValue: true,
+    });
+
+    if (isCancel(dsAnswer)) {
+      cancel('Setup cancelled.');
+      process.exit(0);
+    }
+
+    addDesignSystem = dsAnswer;
+  }
+
+  // --- Build summary and copy optional items ---
+
+  const optionalSummary = [];
+
+  const optionalDir = path.join(templateDir, 'optional');
+
+  if (addFrontend) {
+    const agentSrc = path.join(optionalDir, 'agents/frontend-react.md');
+    const agentDest = path.join(targetDir, '.claude/agents/frontend-react.md');
+
+    if (exists(agentSrc) && !exists(agentDest)) {
+      fs.mkdirSync(path.dirname(agentDest), { recursive: true });
+      fs.copyFileSync(agentSrc, agentDest);
+      optionalSummary.push('Frontend Agent (React 19.x / shadcn / Vite)');
+      log.success('Created: Frontend Agent');
+    } else if (exists(agentDest)) {
+      log.warn('Skipped: Frontend Agent (already exists)');
+    }
+  }
+
+  if (addBackend) {
+    const agentSrc = path.join(optionalDir, 'agents/backend-springboot.md');
+    const agentDest = path.join(targetDir, '.claude/agents/backend-springboot.md');
+
+    if (exists(agentSrc) && !exists(agentDest)) {
+      fs.mkdirSync(path.dirname(agentDest), { recursive: true });
+      fs.copyFileSync(agentSrc, agentDest);
+      optionalSummary.push('Backend Agent (Spring Boot 3.5+ / Java 25)');
+      log.success('Created: Backend Agent');
+    } else if (exists(agentDest)) {
+      log.warn('Skipped: Backend Agent (already exists)');
+    }
+  }
+
+  if (addDesignSystem) {
+    const dsSrc = path.join(optionalDir, 'design-system/design-system.md');
+    const dsDest = path.join(targetDir, 'docs/guidelines/ui/design-system.md');
+
+    if (exists(dsSrc) && !exists(dsDest)) {
+      fs.mkdirSync(path.dirname(dsDest), { recursive: true });
+      fs.copyFileSync(dsSrc, dsDest);
+      optionalSummary.push('Design System (shadcn Nova / Indigo)');
+      log.success('Created: Design System');
+    } else if (exists(dsDest)) {
+      log.warn('Skipped: Design System (already exists)');
+    }
+  }
+
+  // --- Summary ---
+
+  const totalCreated = created.length + optionalSummary.length;
+
+  if (totalCreated === 0 && skipped.length > 0) {
+    log.info('All items already exist. Nothing to create.');
+  } else {
+    const summaryLines = [];
+
+    if (created.length > 0) {
+      summaryLines.push('Core:');
+      for (const item of created) {
+        summaryLines.push(`  + ${item}`);
+      }
+    }
+
+    if (optionalSummary.length > 0) {
+      if (summaryLines.length > 0) summaryLines.push('');
+      summaryLines.push('Optional:');
+      for (const item of optionalSummary) {
+        summaryLines.push(`  + ${item}`);
+      }
+    }
+
+    if (skipped.length > 0) {
+      if (summaryLines.length > 0) summaryLines.push('');
+      summaryLines.push('Skipped (already exist):');
+      for (const item of skipped) {
+        summaryLines.push(`  - ${item}`);
+      }
+    }
+
+    if (summaryLines.length > 0) {
+      note(summaryLines.join('\n'), 'Installation Summary');
+    }
+  }
+
+  // --- Next steps ---
+
+  const nextSteps = [
+    '1. Review and customize .claude/settings.local.example.json',
+    '   Rename to settings.local.json after customization',
+    '2. Update CLAUDE.md with project-specific preferences',
+    '3. Start coding with Claude!',
   ];
 
-  for (const [templateSubPath, targetSubPath, description] of items) {
-    const srcPath = path.join(templateDir, templateSubPath);
-    const destPath = path.join(targetDir, targetSubPath);
+  note(nextSteps.join('\n'), 'Next Steps');
 
-    // Check if source exists in template
-    if (!exists(srcPath)) {
-      logWarning(`Template missing: ${templateSubPath}`);
-      continue;
-    }
-
-    // Check if destination already exists
-    if (exists(destPath)) {
-      skipped.push(description);
-      logWarning(`Skipped: ${targetSubPath} (already exists)`);
-      continue;
-    }
-
-    // Copy the item
-    try {
-      const srcStat = fs.statSync(srcPath);
-      if (srcStat.isDirectory()) {
-        copyDir(srcPath, destPath);
-      } else {
-        // Ensure parent directory exists
-        fs.mkdirSync(path.dirname(destPath), { recursive: true });
-        fs.copyFileSync(srcPath, destPath);
-      }
-      created.push(description);
-      logSuccess(`Created: ${targetSubPath}`);
-    } catch (err) {
-      logError(`Failed to create ${targetSubPath}: ${err.message}`);
-    }
-  }
-
-  // Summary
-  console.log('');
-
-  if (created.length === 0 && skipped.length > 0) {
-    logInfo('All items already exist. Nothing to create.');
-  } else if (created.length > 0) {
-    log(`${colors.bold}${colors.green}Done!${colors.reset} Created ${created.length} item(s).\n`);
-  }
-
-  // Next steps
-  if (created.length > 0) {
-    log(`${colors.bold}Next steps:${colors.reset}`);
-    log('1. Review and customize .claude/settings.local.example.json');
-    log('   Rename to settings.local.json after customization');
-    log('2. Update CLAUDE.md with project-specific preferences');
-    log('3. Start coding with Claude!\n');
-  }
+  outro("You're all set!");
 }
 
 // Run the CLI
-try {
-  main();
-} catch (err) {
-  logError(`Unexpected error: ${err.message}`);
+main().catch((err) => {
+  log.error(`Unexpected error: ${err.message}`);
   process.exit(1);
-}
+});

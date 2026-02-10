@@ -1,7 +1,8 @@
 # ADR-001: Pure Node.js Implementation (Zero Dependencies)
 
 ## Status
-Accepted
+
+Superseded by [ADR-002: Add @clack/prompts for Interactive CLI](002-add-clack-prompts-interactive-cli.md)
 
 ## Context
 When building the `@rhofkens/ai-coding-starter` CLI tool, we needed to decide how to implement file copying functionality. The tool copies template files (`.claude/`, `docs/`, `CLAUDE.md`, `LICENSE`) to initialize new projects with Claude Code configurations.

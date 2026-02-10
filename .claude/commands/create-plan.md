@@ -6,11 +6,11 @@ allowed-tools: Read, Glob, Grep, Write, AskUserQuestion, Task
 
 # Implementation Plan Generator
 
-Create high-level implementation plans for features, changes, or improvements. Plans are stored in `docs/plans/video-project/` and focus on architecture, phases, and technical decisions—not code.
+Create high-level implementation plans for features, changes, or improvements. Plans are stored in `docs/plans/` and focus on architecture, phases, and technical decisions—not code.
 
 ## Plan Storage Location
 
-All plans are stored in: `docs/plans/video-project/`
+All plans are stored in: `docs/plans/`
 
 Naming convention: `<feature-name-kebab-case>.md` or `<feature-name-kebab-case>-plan.md`
 
@@ -22,7 +22,7 @@ Ask the user for:
 
 1. **What needs to be implemented** - The feature, change, or improvement
 2. **What needs to be researched** - External APIs, technologies, patterns
-3. **Any constraints or preferences** - Timeline concerns, technology preferences, scope boundaries
+3. **Any constraints or preferences** - Technology preferences, scope boundaries
 4. **Related context** - Links to issues, discussions, or external documentation
 
 ### Step 2: Research Existing Architecture
@@ -42,30 +42,31 @@ Check `docs/decisions/` for relevant architectural decisions:
 Check these folders for relevant context:
 
 - `docs/guidelines/` - Coding standards and patterns
-- `docs/product/` - Product requirements and specifications
-- `docs/experiments/` - Previous experiments or research
+- `docs/PRD/` - Product requirements and specifications
 
-#### 2.3 Read Requested Reference Documentation (Optional)
+#### 2.3 Review Specialized Agent Best Practices
+
+Check for the following specialized agent definitions and incorporate their best practices into the plan:
+
+1. **Frontend agent** (`.claude/agents/frontend-react.md`) — If this file exists and the plan involves frontend work, read it and extract the Core Principles, Architecture Best Practices, shadcn/ui Component Guidelines, Styling & Theming, and What NOT To Do sections. The plan's frontend phases must align with these guidelines.
+2. **Backend agent** (`.claude/agents/backend-springboot.md`) — If this file exists and the plan involves backend work, read it and extract the Core Principles, Architecture Best Practices, Security Best Practices, and What NOT To Do sections. The plan's backend phases must align with these guidelines.
+3. **Note in Research Summary** — list which agent definitions were found and which best practices were incorporated as plan constraints.
+
+If neither agent file is present, or the plan does not involve their respective domains, skip this step.
+
+#### 2.4 Read Requested Reference Documentation (Optional)
 
 If the user mentions specific technologies, APIs, or frameworks that may need external documentation:
 
-1. **Check `docs/reference/`** for matching MD files (e.g., `docs/reference/shotstack-api.md`, `docs/reference/cartesia-tts.md`)
+1. **Check `docs/reference/`** for matching MD files
 2. **Read any relevant reference files** that match the technologies mentioned
 3. **Incorporate key details** into your research summary
 
-This folder contains pre-researched documentation for:
-- New or emerging frameworks not well-represented in training data
-- Smaller APIs or niche libraries with limited public documentation
-- Custom tools or specialized services
-- Documentation summarized by external research agents
-
-**Naming convention:** `<technology-name-kebab-case>.md` (e.g., `hedra-api.md`, `comfyui-live-portrait.md`)
-
 If the user mentions a technology and no reference file exists, note this in the Open Questions section of the plan.
 
-#### 2.4 Research the Codebase
+#### 2.5 Research the Codebase
 
-Use the Explore agent to find:
+Use exploration tools to find:
 
 - Existing implementations that are similar or related
 - Database schemas and entities involved
@@ -75,10 +76,7 @@ Use the Explore agent to find:
 
 ### Step 3: Draft the Plan
 
-Create a comprehensive plan with the following sections. Review existing plans in `docs/plans/video-project/` for format examples, especially:
-
-- `cartesia-tts-provider-integration.md` - Multi-phase integration example
-- `visual-event-timing-matchphrase-fix.md` - Bug fix with root cause analysis
+Create a comprehensive plan with the following sections:
 
 **Required Sections:**
 
@@ -104,12 +102,7 @@ Create a comprehensive plan with the following sections. Review existing plans i
    - Acceptance Criteria - table of testable criteria (see Step 5)
    - Manual Testing - checkbox list of test steps
 
-9. **Files to Modify** - Separate lists for:
-   - Backend (New Files)
-   - Backend (Modify)
-   - Frontend (New Files)
-   - Frontend (Modify)
-   - Database Migrations
+9. **Files to Modify** - Separate lists for new files and modifications
 
 10. **Risk Assessment** - Table with columns: Risk, Impact, Likelihood, Mitigation
 
@@ -166,40 +159,11 @@ Use a table format with three columns:
 - Skip verification methods
 - Forget negative cases (what should NOT happen)
 
-#### Example Criteria by Type
-
-**Database changes:**
-```markdown
-| AC1.1 | Migration creates `status` column (VARCHAR 50, nullable) on `projects` table | `\d projects` shows column |
-| AC1.2 | Migration runs successfully on database with existing data | Existing rows intact |
-```
-
-**API changes:**
-```markdown
-| AC2.1 | POST `/api/projects` accepts new `audience` field in request body | API call succeeds |
-| AC2.2 | GET `/api/projects/{id}` returns `audience` field in response | Response contains field |
-| AC2.3 | Invalid `audience` value returns 400 Bad Request | Error response |
-```
-
-**Frontend changes:**
-```markdown
-| AC3.1 | Dropdown displays all 3 options: "Option A", "Option B", "Option C" | UI shows options |
-| AC3.2 | Selecting option updates form state correctly | Form value changes |
-| AC3.3 | Form validation prevents submission without required field | Submit button disabled or error shown |
-```
-
-**Business logic:**
-```markdown
-| AC4.1 | 2-minute video generates 2-3 topic scenes | Scene count validation |
-| AC4.2 | Total word count is within ±15% of target | Word count check |
-| AC4.3 | Existing BUSINESS_UPDATE projects generate identical output (no regression) | Compare before/after |
-```
-
 ### Step 6: Finalize and Save
 
 Once the user approves the plan with acceptance criteria:
 
-1. Write the final plan to `docs/plans/video-project/<feature-name>.md`
+1. Write the final plan to `docs/plans/<feature-name>.md`
 2. Summarize what was created including acceptance criteria count per phase
 3. Suggest next steps (e.g., "Ready to start Phase 1 when you are")
 
@@ -254,5 +218,5 @@ ParentComponent
                              │
               ┌──────────────┼──────────────┐
               ▼              ▼              ▼
-         Database      File System      Cloud (R2)
+         Database      File System      Cloud Storage
 ```

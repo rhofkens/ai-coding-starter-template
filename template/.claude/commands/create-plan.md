@@ -44,7 +44,17 @@ Check these folders for relevant context:
 - `docs/guidelines/` - Coding standards and patterns
 - `docs/PRD/` - Product requirements and specifications
 
-#### 2.3 Read Requested Reference Documentation (Optional)
+#### 2.3 Review Specialized Agent Best Practices
+
+Check for the following specialized agent definitions and incorporate their best practices into the plan:
+
+1. **Frontend agent** (`.claude/agents/frontend-react.md`) — If this file exists and the plan involves frontend work, read it and extract the Core Principles, Architecture Best Practices, shadcn/ui Component Guidelines, Styling & Theming, and What NOT To Do sections. The plan's frontend phases must align with these guidelines.
+2. **Backend agent** (`.claude/agents/backend-springboot.md`) — If this file exists and the plan involves backend work, read it and extract the Core Principles, Architecture Best Practices, Security Best Practices, and What NOT To Do sections. The plan's backend phases must align with these guidelines.
+3. **Note in Research Summary** — list which agent definitions were found and which best practices were incorporated as plan constraints.
+
+If neither agent file is present, or the plan does not involve their respective domains, skip this step.
+
+#### 2.4 Read Requested Reference Documentation (Optional)
 
 If the user mentions specific technologies, APIs, or frameworks that may need external documentation:
 
@@ -54,7 +64,7 @@ If the user mentions specific technologies, APIs, or frameworks that may need ex
 
 If the user mentions a technology and no reference file exists, note this in the Open Questions section of the plan.
 
-#### 2.4 Research the Codebase
+#### 2.5 Research the Codebase
 
 Use exploration tools to find:
 

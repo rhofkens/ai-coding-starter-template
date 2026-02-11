@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-02-10
+
+### Fixed
+
+- Directory merge logic: existing directories (e.g., `.claude/`) now merge new files instead of skipping the entire directory
+- Shows accurate feedback: "Merged: ... (N new, M existing)" when adding files to existing directories
+
 ## [2.0.0] - 2026-02-10
 
 ### Added

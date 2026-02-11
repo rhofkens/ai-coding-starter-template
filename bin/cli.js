@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * ai-coding-starter CLI v2.0.0
+ * ai-coding-starter CLI v2.0.2
  * Initializes a project with Claude Code configurations for enterprise-grade AI-assisted development workflows
  */
 
@@ -31,53 +31,152 @@ function exists(targetPath) {
 }
 
 /**
- * Copy a directory recursively
+ * Recursively scan a template directory against target to detect new vs existing files.
+ * Read-only — no copying. Returns { newFiles: string[], existingFiles: string[] }.
  */
-function copyDir(src, dest) {
+function scanDir(src, dest, basePath = '') {
+  const newFiles = [];
+  const existingFiles = [];
+
+  if (!exists(src)) return { newFiles, existingFiles };
+
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    const relPath = basePath ? path.join(basePath, entry.name) : entry.name;
+
+    if (entry.isDirectory()) {
+      const sub = scanDir(srcPath, destPath, relPath);
+      newFiles.push(...sub.newFiles);
+      existingFiles.push(...sub.existingFiles);
+    } else if (exists(destPath)) {
+      existingFiles.push(relPath);
+    } else {
+      newFiles.push(relPath);
+    }
+  }
+
+  return { newFiles, existingFiles };
+}
+
+/**
+ * Scan a single template item (file or directory) to detect new vs existing files.
+ * Returns { newFiles: string[], existingFiles: string[] }.
+ */
+function scanItem(templateDir, targetDir, templateSubPath) {
+  const srcPath = path.join(templateDir, templateSubPath);
+  const destPath = path.join(targetDir, templateSubPath);
+
+  if (!exists(srcPath)) return { newFiles: [], existingFiles: [] };
+
+  const srcStat = fs.statSync(srcPath);
+
+  if (srcStat.isDirectory()) {
+    return scanDir(srcPath, destPath, templateSubPath);
+  }
+
+  // Single file
+  if (exists(destPath)) {
+    return { newFiles: [], existingFiles: [templateSubPath] };
+  }
+  return { newFiles: [templateSubPath], existingFiles: [] };
+}
+
+/**
+ * Merge-copy a directory recursively.
+ * Creates directories as needed. When overwrite is false, skips existing files.
+ * When overwrite is true, overwrites existing files.
+ * Returns { created: number, updated: number, skipped: number } counts.
+ */
+function mergeDir(src, dest, overwrite = false) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
 
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
 
     if (entry.isDirectory()) {
-      copyDir(srcPath, destPath);
+      const sub = mergeDir(srcPath, destPath, overwrite);
+      created += sub.created;
+      updated += sub.updated;
+      skipped += sub.skipped;
+    } else if (exists(destPath)) {
+      if (overwrite) {
+        fs.copyFileSync(srcPath, destPath);
+        updated++;
+      } else {
+        skipped++;
+      }
     } else {
       fs.copyFileSync(srcPath, destPath);
+      created++;
     }
   }
+
+  return { created, updated, skipped };
 }
 
 /**
- * Copy a single item (file or directory) from template to target
- * Returns true if created, false if skipped
+ * Copy a single item (file or directory) from template to target.
+ * For directories, merges content. When overwrite is true, overwrites existing files.
+ * Returns 'created' | 'merged' | 'updated' | 'skipped' | 'missing'.
  */
-function copyItem(templateDir, targetDir, templateSubPath, description) {
+function copyItem(templateDir, targetDir, templateSubPath, description, overwrite = false) {
   const srcPath = path.join(templateDir, templateSubPath);
   const destPath = path.join(targetDir, templateSubPath);
   const label = description || templateSubPath;
 
   if (!exists(srcPath)) {
     log.warn(`Template missing: ${label}`);
-    return false;
-  }
-
-  if (exists(destPath)) {
-    log.warn(`Skipped: ${label} (already exists)`);
-    return false;
+    return 'missing';
   }
 
   const srcStat = fs.statSync(srcPath);
+
   if (srcStat.isDirectory()) {
-    copyDir(srcPath, destPath);
-  } else {
-    fs.mkdirSync(path.dirname(destPath), { recursive: true });
-    fs.copyFileSync(srcPath, destPath);
+    const { created, updated, skipped } = mergeDir(srcPath, destPath, overwrite);
+    if (updated > 0 && created > 0) {
+      log.success(`Merged: ${label} (${created} new, ${updated} updated)`);
+      return 'merged';
+    } else if (updated > 0) {
+      log.success(`Updated: ${label} (${updated} files)`);
+      return 'updated';
+    } else if (created > 0 && skipped > 0) {
+      log.success(`Merged: ${label} (${created} new, ${skipped} existing)`);
+      return 'merged';
+    } else if (created > 0) {
+      log.success(`Created: ${label}`);
+      return 'created';
+    } else if (skipped > 0) {
+      log.info(`Kept: ${label} (${skipped} files unchanged)`);
+      return 'skipped';
+    } else {
+      log.success(`Created: ${label}`);
+      return 'created';
+    }
   }
 
+  // Single file
+  if (exists(destPath)) {
+    if (overwrite) {
+      fs.copyFileSync(srcPath, destPath);
+      log.success(`Updated: ${label}`);
+      return 'updated';
+    }
+    log.info(`Kept: ${label} (already exists)`);
+    return 'skipped';
+  }
+
+  fs.mkdirSync(path.dirname(destPath), { recursive: true });
+  fs.copyFileSync(srcPath, destPath);
   log.success(`Created: ${label}`);
-  return true;
+  return 'created';
 }
 
 /**
@@ -85,7 +184,7 @@ function copyItem(templateDir, targetDir, templateSubPath, description) {
  */
 function showHelp() {
   console.log(`
-ai-coding-starter v2.0.0
+ai-coding-starter v2.0.2
 
 Initialize a project with Claude Code configurations for
 enterprise-grade AI-assisted development workflows.
@@ -143,10 +242,7 @@ async function main() {
     'About'
   );
 
-  // --- Core items (always installed) ---
-
-  const s = spinner();
-  s.start('Installing core components...');
+  // --- Pre-scan core items ---
 
   const coreItems = [
     ['.claude', '.claude/ commands, skills, and settings'],
@@ -155,24 +251,104 @@ async function main() {
     ['LICENSE', 'LICENSE file'],
   ];
 
-  const created = [];
-  const skipped = [];
+  let allNewFiles = [];
+  let allExistingFiles = [];
+
+  for (const [templateSubPath] of coreItems) {
+    const scan = scanItem(templateDir, targetDir, templateSubPath);
+    allNewFiles.push(...scan.newFiles);
+    allExistingFiles.push(...scan.existingFiles);
+  }
+
+  // --- Ask about updating existing files ---
+
+  let overwriteCore = false;
+
+  if (allExistingFiles.length > 0) {
+    note(
+      [
+        `Found ${allExistingFiles.length} existing file${allExistingFiles.length === 1 ? '' : 's'} from a previous installation.`,
+        `${allNewFiles.length} new file${allNewFiles.length === 1 ? '' : 's'} will be added.`,
+      ].join('\n'),
+      'Previous Installation Detected'
+    );
+
+    const updateAnswer = await confirm({
+      message: 'Update existing files with latest templates?',
+      active: 'Yes',
+      inactive: 'No',
+      initialValue: false,
+    });
+
+    if (isCancel(updateAnswer)) {
+      cancel('Setup cancelled.');
+      process.exit(0);
+    }
+
+    overwriteCore = updateAnswer;
+  }
+
+  // --- Install core items ---
+
+  const s = spinner();
+  s.start('Installing core components...');
+
+  const createdItems = [];
+  const updatedItems = [];
+  const keptItems = [];
 
   for (const [templateSubPath, description] of coreItems) {
-    const wasCreated = copyItem(templateDir, targetDir, templateSubPath, description);
-    if (wasCreated) {
-      created.push(description);
+    const result = copyItem(templateDir, targetDir, templateSubPath, description, overwriteCore);
+    if (result === 'created') {
+      createdItems.push(description);
+    } else if (result === 'updated' || result === 'merged') {
+      updatedItems.push(description);
     } else {
-      skipped.push(description);
+      keptItems.push(description);
     }
   }
 
   s.stop('Core components installed.');
 
-  // --- Optional components ---
+  // --- Pre-scan optional items ---
 
+  const optionalDir = path.join(templateDir, 'optional');
+
+  const optionalDefs = [
+    {
+      key: 'frontend',
+      label: 'Frontend Agent (React 19.x / shadcn / Vite)',
+      src: path.join(optionalDir, 'agents/frontend-react.md'),
+      dest: path.join(targetDir, '.claude/agents/frontend-react.md'),
+    },
+    {
+      key: 'backend',
+      label: 'Backend Agent (Spring Boot 3.5+ / Java 25)',
+      src: path.join(optionalDir, 'agents/backend-springboot.md'),
+      dest: path.join(targetDir, '.claude/agents/backend-springboot.md'),
+    },
+    {
+      key: 'designSystem',
+      label: 'Design System (shadcn Nova / Indigo)',
+      src: path.join(optionalDir, 'design-system/design-system.md'),
+      dest: path.join(targetDir, 'docs/guidelines/ui/design-system.md'),
+      dependsOn: 'frontend',
+    },
+  ];
+
+  // Detect which optional items already exist
+  const optionalExists = {};
+  for (const def of optionalDefs) {
+    optionalExists[def.key] = exists(def.dest);
+  }
+
+  // --- Optional component prompts with smart labels ---
+
+  const optionalSelections = {};
+
+  const frontendVerb = optionalExists.frontend ? 'Update' : 'Add';
   const addFrontend = await confirm({
-    message: 'Add Frontend Agent (React 19.x / shadcn / Vite)?',
+    message: `${frontendVerb} Frontend Agent (React 19.x / shadcn / Vite)?`,
     active: 'Yes',
     inactive: 'No',
     initialValue: true,
@@ -182,9 +358,11 @@ async function main() {
     cancel('Setup cancelled.');
     process.exit(0);
   }
+  optionalSelections.frontend = addFrontend;
 
+  const backendVerb = optionalExists.backend ? 'Update' : 'Add';
   const addBackend = await confirm({
-    message: 'Add Backend Agent (Spring Boot 3.5+ / Java 25)?',
+    message: `${backendVerb} Backend Agent (Spring Boot 3.5+ / Java 25)?`,
     active: 'Yes',
     inactive: 'No',
     initialValue: true,
@@ -194,12 +372,12 @@ async function main() {
     cancel('Setup cancelled.');
     process.exit(0);
   }
-
-  let addDesignSystem = false;
+  optionalSelections.backend = addBackend;
 
   if (addFrontend) {
+    const dsVerb = optionalExists.designSystem ? 'Update' : 'Add';
     const dsAnswer = await confirm({
-      message: 'Add Default Design System (shadcn Nova / Indigo)?',
+      message: `${dsVerb} Default Design System (shadcn Nova / Indigo)?`,
       active: 'Yes',
       inactive: 'No',
       initialValue: true,
@@ -209,87 +387,71 @@ async function main() {
       cancel('Setup cancelled.');
       process.exit(0);
     }
-
-    addDesignSystem = dsAnswer;
+    optionalSelections.designSystem = dsAnswer;
   }
 
-  // --- Build summary and copy optional items ---
+  // --- Copy optional items ---
 
-  const optionalSummary = [];
+  const optionalCreated = [];
+  const optionalUpdated = [];
 
-  const optionalDir = path.join(templateDir, 'optional');
+  for (const def of optionalDefs) {
+    if (!optionalSelections[def.key]) continue;
 
-  if (addFrontend) {
-    const agentSrc = path.join(optionalDir, 'agents/frontend-react.md');
-    const agentDest = path.join(targetDir, '.claude/agents/frontend-react.md');
-
-    if (exists(agentSrc) && !exists(agentDest)) {
-      fs.mkdirSync(path.dirname(agentDest), { recursive: true });
-      fs.copyFileSync(agentSrc, agentDest);
-      optionalSummary.push('Frontend Agent (React 19.x / shadcn / Vite)');
-      log.success('Created: Frontend Agent');
-    } else if (exists(agentDest)) {
-      log.warn('Skipped: Frontend Agent (already exists)');
+    if (!exists(def.src)) {
+      log.warn(`Template missing: ${def.label}`);
+      continue;
     }
-  }
 
-  if (addBackend) {
-    const agentSrc = path.join(optionalDir, 'agents/backend-springboot.md');
-    const agentDest = path.join(targetDir, '.claude/agents/backend-springboot.md');
+    const fileExists = optionalExists[def.key];
+    fs.mkdirSync(path.dirname(def.dest), { recursive: true });
+    fs.copyFileSync(def.src, def.dest);
 
-    if (exists(agentSrc) && !exists(agentDest)) {
-      fs.mkdirSync(path.dirname(agentDest), { recursive: true });
-      fs.copyFileSync(agentSrc, agentDest);
-      optionalSummary.push('Backend Agent (Spring Boot 3.5+ / Java 25)');
-      log.success('Created: Backend Agent');
-    } else if (exists(agentDest)) {
-      log.warn('Skipped: Backend Agent (already exists)');
-    }
-  }
-
-  if (addDesignSystem) {
-    const dsSrc = path.join(optionalDir, 'design-system/design-system.md');
-    const dsDest = path.join(targetDir, 'docs/guidelines/ui/design-system.md');
-
-    if (exists(dsSrc) && !exists(dsDest)) {
-      fs.mkdirSync(path.dirname(dsDest), { recursive: true });
-      fs.copyFileSync(dsSrc, dsDest);
-      optionalSummary.push('Design System (shadcn Nova / Indigo)');
-      log.success('Created: Design System');
-    } else if (exists(dsDest)) {
-      log.warn('Skipped: Design System (already exists)');
+    if (fileExists) {
+      log.success(`Updated: ${def.label}`);
+      optionalUpdated.push(def.label);
+    } else {
+      log.success(`Created: ${def.label}`);
+      optionalCreated.push(def.label);
     }
   }
 
   // --- Summary ---
 
-  const totalCreated = created.length + optionalSummary.length;
+  const totalActions = createdItems.length + updatedItems.length + optionalCreated.length + optionalUpdated.length;
 
-  if (totalCreated === 0 && skipped.length > 0) {
-    log.info('All items already exist. Nothing to create.');
+  if (totalActions === 0 && keptItems.length > 0) {
+    log.info('All items already exist. Nothing changed.');
   } else {
     const summaryLines = [];
 
-    if (created.length > 0) {
-      summaryLines.push('Core:');
-      for (const item of created) {
-        summaryLines.push(`  + ${item}`);
-      }
+    // Created
+    const allCreated = [
+      ...createdItems.map(i => `  ${pc.green('+')} ${i}`),
+      ...optionalCreated.map(i => `  ${pc.green('+')} ${i}`),
+    ];
+    if (allCreated.length > 0) {
+      summaryLines.push(pc.bold('Created:'));
+      summaryLines.push(...allCreated);
     }
 
-    if (optionalSummary.length > 0) {
+    // Updated
+    const allUpdated = [
+      ...updatedItems.map(i => `  ${pc.cyan('↑')} ${i}`),
+      ...optionalUpdated.map(i => `  ${pc.cyan('↑')} ${i}`),
+    ];
+    if (allUpdated.length > 0) {
       if (summaryLines.length > 0) summaryLines.push('');
-      summaryLines.push('Optional:');
-      for (const item of optionalSummary) {
-        summaryLines.push(`  + ${item}`);
-      }
+      summaryLines.push(pc.bold('Updated:'));
+      summaryLines.push(...allUpdated);
     }
 
-    if (skipped.length > 0) {
+    // Kept
+    if (keptItems.length > 0) {
       if (summaryLines.length > 0) summaryLines.push('');
-      summaryLines.push('Skipped (already exist):');
-      for (const item of skipped) {
-        summaryLines.push(`  - ${item}`);
+      summaryLines.push(pc.bold('Kept (unchanged):'));
+      for (const item of keptItems) {
+        summaryLines.push(`  ${pc.dim('=')} ${item}`);
       }
     }
 

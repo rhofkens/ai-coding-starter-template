@@ -1,6 +1,6 @@
 {
   "name": "@rhofkens/ai-coding-starter",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "type": "module",
   "description": "Initialize a project with Claude Code configurations for enterprise-grade AI-assisted development workflows",
   "bin": {

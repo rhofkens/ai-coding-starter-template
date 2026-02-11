@@ -16,6 +16,8 @@ Accumulated learnings from development sessions.
 - **Empty directories in npm**: npm doesn't include empty directories. Use `.gitkeep` placeholder files.
 - **Optional files in core directories**: Don't place selectable/optional files inside directories that are bulk-copied as core items — they'll get copied during core setup and then conflict during optional setup.
 - **ESM __dirname equivalent**: ESM doesn't have `__dirname`. Use `path.dirname(fileURLToPath(import.meta.url))` with `import { fileURLToPath } from 'node:url'`.
+- **@clack/prompts is TTY-only**: The library requires a real terminal for interactive prompts. Piped stdin (`echo | node cli.js`) causes hangs. Use manual testing or `expect`-based scripts for CLI testing.
+- **Confirm defaults matter for safety**: When a confirm prompt can cause destructive action (overwriting files), set `initialValue: false` so pressing Enter defaults to the safe choice.
 
 ## Workflow Tips
 
@@ -34,7 +36,9 @@ Accumulated learnings from development sessions.
 
 ## Code Patterns
 
-- **Node.js recursive copy**: Custom `copyDir()` with `fs.readdirSync()` + `withFileTypes: true` for clean recursive directory copying.
+- **Pre-scan before copy pattern**: Separate read-only detection (`scanDir`/`scanItem`) from action (`mergeDir`/`copyItem` with overwrite flag). Lets you show the user what will happen before doing anything, keeping UX clean for update flows.
+- **Data-driven optional items**: Define optional CLI components as an array of `{ key, label, src, dest }` objects instead of inline if/else blocks. Reduces duplication and makes adding new optional items a one-line change.
+- **Node.js recursive copy**: Custom `mergeDir()` with `fs.readdirSync()` + `withFileTypes: true` for clean recursive directory copying. Accepts `overwrite` flag for update scenarios.
 - **CLI colored output (v1)**: Use ANSI codes (`\x1b[32m` for green, etc.) for colored terminal output without dependencies.
 - **CLI colored output (v2)**: Use `picocolors` (bundled with @clack/prompts) for `pc.bold()`, `pc.cyan()`, `pc.white()` etc.
 - **Create-plan agent integration**: Reference specific agent files by path in create-plan instructions (not "scan all agents") to keep instructions focused and predictable.

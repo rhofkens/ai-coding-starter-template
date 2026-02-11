@@ -4,6 +4,25 @@ Audit log of knowledge base updates.
 
 ---
 
+## 2026-02-11
+
+**Session:** Smart Update Detection for CLI Installer (v2.0.2)
+**Plan:** `docs/plans/smart-update-detection.md`
+**Session file:** `sessions/2026-02-11-smart-update-detection.md`
+
+**Added to knowledge.md:**
+
+- Code pattern: Pre-scan before copy pattern (separate detection from action)
+- Code pattern: Data-driven optional items array
+- Pitfall: @clack/prompts is TTY-only — piped stdin causes hangs
+- Pitfall: Confirm defaults matter for safety (initialValue: false for destructive actions)
+
+**Updated in knowledge.md:**
+
+- Node.js recursive copy entry updated to reference `mergeDir()` with overwrite flag
+
+---
+
 ## 2026-02-10
 
 **Session:** Interactive CLI, Specialized Agents, and Design System (v2.0.0)
@@ -36,6 +55,7 @@ Audit log of knowledge base updates.
 **Session file:** `sessions/2026-01-19-npm-package-creation.md`
 
 **Added to knowledge.md:**
+
 - Architecture pattern: Zero-dependency CLI tools with pure Node.js
 - Architecture pattern: Template bundling in npm packages
 - Pitfall: npm 2FA publishing requires granular access token
@@ -50,7 +70,9 @@ Audit log of knowledge base updates.
 - Debugging tip: npm 403 errors and 2FA
 
 **Updated in knowledge.md:**
+
 - N/A (initial creation)
 
 **Removed from knowledge.md:**
+
 - N/A (initial creation)
